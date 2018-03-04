@@ -1,140 +1,202 @@
 #include <stdio.h>
 #include <string.h>
-#include <conio.h>
-#include <malloc.h>
 
-typedef struct KEYS
+struct RSA
 {
-	int key[2];
-}
-KEYS;
+  	long primes[2];
+	long keys[2];
+  	int totient;
+  	int bigN;
+  	char string[256];
+  	char sstring[256];
+  	char encstring[1024];
+  	char decstring[1024];
+};
+typedef struct RSA RSA;
 
-int strval(char *str);
-int getTotalLength(int k);
-int generateKey(int k, int tn);
-int getMod(int val, int pow, int mod);
-char toupper(char c);
-int main()
+int getMod(int key,int pow,int mod);
+int getKey(int key,int totient);
+void sanitizeString(char *string,char *newstring);
+char ctoupper(char s);
+int getDigitCount(int number);
+void useRSA(char *string,char *encstring,RSA rsa);
+void decrypt(char *string,char *decstring,RSA rsa);
+int strtodig(char *string);
+int getmax(int x,int y);
+int getMaxDC(int key,int n);
+
+int main(int argc,char **argv)
 {
-	int p, q, tn, n, len;
-	char ch;
-	KEYS m_keys;
-	char m_input[128];
-	char m_inputcpy[128];
-	int m_enc[128];
-	int m_dec[128];
-	char encrypt[2048] = "";
-	char decryptx[128][12];
-	char decrypt[2048] = "";
-	int i, k, l;
-	int m_len, comb = 0, rem;
-	printf("Enter two prime numbers:\n");
-	scanf("%d%d", &p, &q);
-	n = p * q;
-	tn = (p - 1) * (q - 1);
-	printf("Enter your key:\n");
-	scanf("%d", &m_keys.key[0]);
-	m_keys.key[1] = generateKey(m_keys.key[0], tn);
-	printf("Key pair generated: %d %d\n", m_keys.key[0], m_keys.key[1]);
-	while ((ch = getchar()) != '\n');
+  	RSA mRSA;
+
+	memset(mRSA.encstring,0,sizeof(mRSA.encstring));
+  	memset(mRSA.decstring,0,sizeof(mRSA.decstring));
+  	printf("Enter two prime numbers:\n");
+  	scanf("%ld%ld",&mRSA.primes[0],&mRSA.primes[1]);
+  	mRSA.bigN = mRSA.primes[0] * mRSA.primes[1];
+  	mRSA.totient = (mRSA.primes[0] - 1) * (mRSA.primes[1] - 1);
+	printf("Enter first key:\n");
+  	scanf("%ld",&mRSA.keys[0]);
+  	mRSA.keys[1] = getKey(mRSA.keys[0],mRSA.totient);
+	printf("Key pair: %ld %ld\n",mRSA.keys[0],mRSA.keys[1]);
+ 	printf("Enter a string\n");
 	fflush(stdin);
-	
-	printf("Enter a string(128 characters):\n");
-	fgets(m_inputcpy, sizeof(m_inputcpy), stdin);
-	k = 0;
-	for (i = 0; i < strlen(m_inputcpy); i++)
-	{
-		if (m_inputcpy[i] == ' ' || m_inputcpy[i] == ',' || m_inputcpy[i] == '?' || m_inputcpy[i] == ';') continue;
-		m_input[k] = toupper(m_inputcpy[i]);
-
-		k++;
-	}
-	m_input[k] = '\0';
-
-	printf("Entered string: %s\n", m_input);
-	for (i = 0; i < strlen(m_input); i++)
-	{
-		m_enc[i] = getMod((int)m_input[i], m_keys.key[0], n);
-		m_len = getTotalLength(m_enc[i]);
-
-		sprintf(encrypt, "%s%d",encrypt, m_enc[i]);
-	}
-	printf("Encrypted String: %s\n", encrypt);
-	len = getTotalLength(getMod((int)'A', m_keys.key[0], n));
-
-
-	k = 0;
-	for (i = 0; i < strlen(encrypt); i += len)
-	{
-		for (l = 0; l < len; l++)
-		{
-			decryptx[k][l] = encrypt[i + l];
-		}
-		decryptx[k][len] = '\0';
-		//printf("%s\n", decryptx[k]);
-		k++;
-	}
-
-	for (i = 0; i < k; i++)
-	{
-		m_dec[i] = strval(decryptx[i]);
-		decrypt[i] = (char)getMod(m_dec[i], m_keys.key[1], n);
-	}
-		
-	printf("Decrypted String: %s\n", decrypt);
-	_getch();
-	return 0;
+  	while((getchar() != '\n'));
+  	fgets (mRSA.string,sizeof(mRSA.string),stdin);
+	sanitizeString(mRSA.string,mRSA.sstring);
+	useRSA(mRSA.sstring,mRSA.encstring,mRSA);
+  	printf("%s\n",mRSA.encstring);
+	printf("Decrypting the above string..\n");
+  	decrypt(mRSA.encstring,mRSA.decstring,mRSA);
+  	printf("%s\n",mRSA.decstring);
+ 	return 0;
 }
-
-int getMod(int val, int pow, int mod)
+int getKey(int key,int totient)
 {
-	int x = 1;
-	for (int i = 0; i < pow; i++)
-	{
-		x = (x*val) % mod;
-	}
-	return x;
-}
-int generateKey(int k, int tn)
-{
-	int ret = 1;
-	for (int i = 1; i < tn; i++)
-	{
-		if ((i*k) % tn == 1)
+  	int res = 1;
+	for(int i = 1; i < totient; i++)
+    	{
+		if((i*key)%totient == 1)
 		{
-			ret = i;
-			break;
+			res = i;
+		  	break;
 		}
 	}
-	return ret;
+  	return res;
 }
-int getTotalLength(int k)
+void sanitizeString(char *string,char *newstring)
 {
-	int x = 0;
-	while (k != 0)
+  	int k = 0;
+  	for(int i = 0; i < strlen(string); i++)
 	{
-		k /= 10;
-		x++;
+		if(string[i] == ' ' || string[i] == ',' || string[i] == ':' || string[i] == ';')
+	    	{
+			continue;
+	    	}
+	  	else
+		{
+			newstring[k] = string[i];
+		  	k++;
+		}
 	}
-	return x;
+  	newstring[k] = '\0';
+  	for(int i = 0; i < strlen(newstring); i++)
+	{
+		newstring[i] = ctoupper(newstring[i]);
+	}
 }
-int strval(char *str)
+
+char ctoupper(char s)
 {
-	int result = 0;
-	for (int i = 0; i < strlen(str); i++)
-	{
-		result = result * 10 + ((int)str[i] - (int)'0');
-	}
-	return result;
+	return (s >= 'a' && s <= 'z') ? (char)((int)s - 32) : s;
 }
-char toupper(char c)
+int getMod(int key,int pow,int mod)
 {
-	if (c == '\0') return c;
-	int val = (int)'a' - (int)'A';
-	int ret = c;
-	if (c >= 'a' && c <= 'z')
-	{
-		ret = c - val;
+  	int res = 1;
+  	for(int i = 0; i < pow; i++)
+    	{
+		res = (res*key)%mod;
 	}
-	return (char)ret;
+  	return res;
+}
+
+int getDigitCount(int number)
+{
+  	if(number == 0) return 1;
+ 	int res = 0;
+  	while(number != 0)
+    	{
+		number /= 10;
+	    	res++;
+	}
+  	return res;
+}
+void useRSA(char *string,char *encstring,RSA rsa)
+{
+	char teststring[128];
+  	int digits[2];
+  	int dc = getMaxDC(rsa.keys[0],rsa.bigN);
+  	for(int i = 0; i < strlen(string)-1; i++)
+	{
+		digits[0] = (int)((int)string[i] / 10);
+	  	digits[1] = (int)((int)string[i] % 10);
+	  	digits[0] = getMod(digits[0],rsa.keys[0],rsa.bigN);
+	  	digits[1] = getMod(digits[1],rsa.keys[0],rsa.bigN);
+
+	  	if(getDigitCount(digits[0]) < dc)
+	    	{
+			for(int k = 0; k < dc - getDigitCount(digits[0]); k++)
+				sprintf(encstring,"%s%d",encstring,0);
+		    	sprintf(encstring,"%s%d",encstring,digits[0]);
+		}
+	  	else sprintf(encstring,"%s%d",encstring,digits[0]);
+	  	if(getDigitCount(digits[1]) < dc)
+	    	{
+			for(int k = 0; k < dc - getDigitCount(digits[1]); k++)
+				sprintf(encstring,"%s%d",encstring,0);
+		    	sprintf(encstring,"%s%d",encstring,digits[1]);
+
+		}
+	  	else sprintf(encstring,"%s%d",encstring,digits[1]);
+	}
+}
+void decrypt(char *string,char *decstring,RSA rsa)
+{
+  	int digits[2];
+  	char tempdigits[2][10];
+  	int finaldig;
+  	memset(tempdigits[0],0,sizeof(tempdigits[0]));
+  	memset(tempdigits[1],0,sizeof(tempdigits[1]));
+  	int dc = getMaxDC (rsa.keys[1],rsa.bigN);
+  	int k = 0;
+  	for(int i = 0; i < strlen(string); i++)
+    	{
+		for( k = i; k < i+dc; k++)
+	    	{
+			tempdigits[0][k-i] = string[k];
+		}
+	    	i += dc;
+	    	for( k = i; k < i+dc; k++)
+	    	{
+			tempdigits[1][k-i] = string[k];
+		}
+	    	i += dc - 1;
+	    	digits[0] = strtodig(tempdigits[0]);
+	    	digits[1] = strtodig(tempdigits[1]);
+		digits[0] = getMod(digits[0],rsa.keys[1],rsa.bigN);
+	    	digits[1] = getMod(digits[1],rsa.keys[1],rsa.bigN);
+	    	finaldig = digits[0]*10 + digits[1];
+	    	sprintf(decstring,"%s%c",decstring,(char)finaldig);
+	}
+}
+
+int strtodig(char *string)
+{
+  	int number = 0;
+  	for(int i = 0; i < strlen(string); i++)
+    	{
+		number = number*10 + ((int)string[i] - (int)'0');
+	}
+  	return number;
+}
+int getmax(int x,int y)
+{
+  	return x > y ? x : y;
+}
+int getMaxDC(int key,int n)
+{
+  	int dc = -1;
+  	int digits[2];
+	for(char c = 'A'; c <= 'Z'; c++)
+    	{
+		digits[0] = (int)((int)c / 10);
+	    	digits[1] = (int)((int)c % 10);
+	    	digits[0] = getMod(digits[0],key,n);
+	    	digits[1] = getMod(digits[1],key,n);
+	    	digits[0] = getDigitCount (digits[0]);
+	    	digits[1] = getDigitCount (digits[1]);
+		dc = getmax(dc,digits[0]);
+	    	dc = getmax(dc,digits[1]);
+	}
+  	return dc;
 }
